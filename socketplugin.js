@@ -5,7 +5,7 @@ const KEY = 'express.sid'
 // Module dependencies
 
 var express = require('express')
-  , ghostPlugin = require('../../core/server/plugins/GhostPlugin')
+  , socketplugin = require('../../core/server/plugins/GhostPlugin')
   , app = express()
   , server = require('http').createServer(app)
   , cookie = express.cookieParser(SECRET)
@@ -15,17 +15,30 @@ var express = require('express')
                              , store: store})
   , io;
 
-ghostPlugin.install = function (ghost) {
-	var server = ghost.server;
-	server.configure(function(){
-	  server.use(cookie);
-	  server.use(session);
-	});
-	io = require('socket.io').listen(server);
-    return;
+var GhostPlugin;
+
+/**
+ * GhostPlugin is the base class for a standard plugin.
+ * @class
+ * @parameter {Ghost} The current Ghost app instance
+ */
+GhostPlugin = function (ghost) {
+    this.app = ghost;
 };
 
-io.set('authorization', function(data, accept) {
+/** 
+ * A method that will be called on installation.
+ * Can optionally return a promise if async.
+ * @parameter {Ghost} The current Ghost app instance
+ */
+GhostPlugin.prototype.install = function (ghost) {
+   	var server = ghost.server;
+
+	  server.use(cookie);
+	  server.use(session);
+
+	io = require('socket.io').listen(server);
+	io.set('authorization', function(data, accept) {
   cookie(data, {}, function(err) {
     if (!err) {
       var sessionID = data.signedCookies[KEY];
@@ -53,3 +66,36 @@ io.sockets.on('connection', function (client) {
     client.broadcast.emit('toClient', msg);
   });
 });
+    return;
+};
+
+/** 
+ * A method that will be called on uninstallation.
+ * Can optionally return a promise if async.
+ * @parameter {Ghost} The current Ghost app instance
+ */
+GhostPlugin.prototype.uninstall = function (ghost) {
+    return;
+};
+
+/** 
+ * A method that will be called when the plugin is enabled.
+ * Can optionally return a promise if async.
+ * @parameter {Ghost} The current Ghost app instance
+ */
+GhostPlugin.prototype.activate = function (ghost) {
+    return;
+};
+
+/** 
+ * A method that will be called when the plugin is disabled.
+ * Can optionally return a promise if async.
+ * @parameter {Ghost} The current Ghost app instance
+ */
+GhostPlugin.prototype.deactivate = function (ghost) {
+    return;
+};
+
+module.exports = GhostPlugin;
+
+
