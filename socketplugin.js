@@ -1,72 +1,69 @@
 // # Socket Plugin Module
 
-const KEY = 'express.sid'
-	, SECRET = 'express';
 // Module dependencies
 
 var express = require('express')
   , socketplugin = require('../../core/server/plugins/GhostPlugin')
-  , app = express()
-  , server = require('http').createServer(app)
-  , cookie = express.cookieParser(SECRET)
   , store = new express.session.MemoryStore()
-  , session = express.session({secret: SECRET
-                             , key: KEY
-                             , store: store})
-  , io;
+  , cookie, session, io, GhostPlugin;
 
-var GhostPlugin;
+// ### Show Room
+// 'myroom' handler.
+function showRoom(req, res, next) {
+    if (req.session.user) {
+        res.render('teacherRoom');
+    }else{
+		res.render('studentRoom');
+	}
 
-/**
- * GhostPlugin is the base class for a standard plugin.
- * @class
- * @parameter {Ghost} The current Ghost app instance
- */
+    next();
+}
+
 GhostPlugin = function (ghost) {
     this.app = ghost;
 };
 
-/** 
- * A method that will be called on installation.
- * Can optionally return a promise if async.
- * @parameter {Ghost} The current Ghost app instance
- */
-GhostPlugin.prototype.install = function (ghost) {
-   	var server = ghost.server;
 
-	  server.use(cookie);
-	  server.use(session);
+GhostPlugin.prototype.activate = function (ghost) {
 
-	io = require('socket.io').listen(server);
+	var server = ghost.server;
+	var httpserver = require('http').createServer(server);
+	//cookie = express.cookieParser(ghost.dbHash);
+	//session = express.cookieSession({store: store});
+
+	//server.use(cookie);
+	//server.use(session);
+
+    //server.get('/myroom/roomId/', showRoom);
+	io = require('socket.io').listen(httpserver);
 	io.set('authorization', function(data, accept) {
-  cookie(data, {}, function(err) {
-    if (!err) {
-      var sessionID = data.signedCookies[KEY];
-      store.get(sessionID, function(err, session) {
-        if (err || !session) {
-          accept(null, false);
-        } else {
-          data.session = session;
-          accept(null, true);
-        }
-      });
-    } else {
-      accept(null, false);
-    }
-  });
-});
+		cookie(data, {}, function(err) {
+			if (!err) {
+				var sessionID = data.signedCookies[KEY];
+				store.get(sessionID, function(err, session) {
+					if (err || !session) {
+						accept(null, false);
+					} else {
+						data.session = session;
+						accept(null, true);
+					}
+				});
+			} else {
+				accept(null, false);
+			}
+		});
+	});
 
-io.sockets.on('connection', function (client) {
-  var session = client.handshake.session
-    , nome = session.nome;
-//nome = 'Test';
-  client.on('toServer', function (msg) {
-    msg = "<b>"+nome+":</b> "+msg+"<br>";
-    client.emit('toClient', msg);
-    client.broadcast.emit('toClient', msg);
-  });
-});
-    return;
+	io.sockets.on('connection', function (client) {
+		var session = client.handshake.session
+		, nome = session.nome;
+		client.on('toServer', function (msg) {
+			msg = "<b>"+nome+":</b> "+msg+"<br>";
+			client.emit('toClient', msg);
+			client.broadcast.emit('toClient', msg);
+		});
+	});
+	return;
 };
 
 /** 
@@ -83,7 +80,8 @@ GhostPlugin.prototype.uninstall = function (ghost) {
  * Can optionally return a promise if async.
  * @parameter {Ghost} The current Ghost app instance
  */
-GhostPlugin.prototype.activate = function (ghost) {
+GhostPlugin.prototype.install = function (ghost) {
+
     return;
 };
 
